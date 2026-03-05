@@ -48,9 +48,7 @@ func main() {
 	case "build", "run", "test":
 		proxyCommand(os.Args[1], os.Args[2:])
 	case "check":
-		// Run analyzers only — rewrite args for multichecker.
-		os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
-		multichecker.Main(analyzers...)
+		runCheck(os.Args[2:])
 	case "explain":
 		explainRule(os.Args[2:])
 	case "rules":
@@ -63,16 +61,34 @@ func main() {
 	}
 }
 
+func runCheck(args []string) {
+	// Run go vet with ourselves as the vettool + the build tag to bypass gate.
+	self, _ := os.Executable()
+	vetArgs := []string{"vet", "-vettool", self, "-tags", buildTag}
+	vetArgs = append(vetArgs, args...)
+
+	goCmd := exec.Command("go", vetArgs...)
+	goCmd.Stdout = os.Stdout
+	goCmd.Stderr = os.Stderr
+
+	if err := goCmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			os.Exit(exitErr.ExitCode())
+		}
+		os.Exit(1)
+	}
+}
+
 func proxyCommand(cmd string, args []string) {
 	fmt.Fprintf(os.Stderr, "goarch: validating architecture...\n")
 
-	// Always validate the entire project — architecture rules apply globally,
-	// not just to the package being built.
-	checkArgs := []string{os.Args[0], "check", "./..."}
-	check := exec.Command(checkArgs[0], checkArgs[1:]...)
+	// Always validate the entire project — architecture rules apply globally.
+	// Uses go vet -vettool with the build tag to bypass gate during analysis.
+	self, _ := os.Executable()
+	vetArgs := []string{"vet", "-vettool", self, "-tags", buildTag, "./..."}
+	check := exec.Command("go", vetArgs...)
 	check.Stdout = os.Stdout
 	check.Stderr = os.Stderr
-	check.Dir, _ = os.Getwd()
 
 	if err := check.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "\ngoarch: BUILD BLOCKED — fix architecture violations above.\n")

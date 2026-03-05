@@ -1,24 +1,7 @@
 //go:build !goarch_f7e2a1
 
+// This file deliberately fails compilation when built without goarch.
+// The error message IS the variable name — it tells the developer what to do.
 package gate
 
-import (
-	"fmt"
-	"os"
-)
-
-func init() {
-	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "  ┌──────────────────────────────────────────────────┐")
-	fmt.Fprintln(os.Stderr, "  │  Direct 'go build' is not allowed.               │")
-	fmt.Fprintln(os.Stderr, "  │                                                  │")
-	fmt.Fprintln(os.Stderr, "  │  Use:  go tool goarch build ./cmd/api            │")
-	fmt.Fprintln(os.Stderr, "  │        go tool goarch run ./cmd/api              │")
-	fmt.Fprintln(os.Stderr, "  │        go tool goarch test ./...                 │")
-	fmt.Fprintln(os.Stderr, "  │                                                  │")
-	fmt.Fprintln(os.Stderr, "  │  goarch validates architecture rules             │")
-	fmt.Fprintln(os.Stderr, "  │  before building.                                │")
-	fmt.Fprintln(os.Stderr, "  └──────────────────────────────────────────────────┘")
-	fmt.Fprintln(os.Stderr, "")
-	os.Exit(1)
-}
+var _ = ERROR__use__go_tool_goarch_build__instead_of__go_build
