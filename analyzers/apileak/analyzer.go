@@ -90,7 +90,7 @@ func checkTypesType(pass *analysis.Pass, expr ast.Expr, t types.Type, banned []s
 		for _, pattern := range banned {
 			if matchBanned(fullPath, pattern) {
 				pass.Reportf(expr.Pos(),
-					"public API must not expose internal type %s (matches ban %q)",
+					"[apileak] public API must not expose internal type %s (matches ban %q)",
 					fullPath, pattern)
 				return
 			}

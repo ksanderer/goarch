@@ -43,7 +43,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 					if reason == "" {
 						reason = "banned by goarch"
 					}
-					pass.Reportf(imp.Pos(), "import %q is banned: %s", importPath, reason)
+					pass.Reportf(imp.Pos(), "[execguard] import %q is banned: %s", importPath, reason)
 				}
 			}
 		}
@@ -74,7 +74,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				if reason == "" {
 					reason = "banned by goarch"
 				}
-				pass.Reportf(sel.Pos(), "%s.%s is banned: %s", ban.Pkg, methodName, reason)
+				pass.Reportf(sel.Pos(), "[execguard] %s.%s is banned: %s", ban.Pkg, methodName, reason)
 			}
 		}
 	})

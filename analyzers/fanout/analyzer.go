@@ -34,7 +34,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		}
 		if count > max {
 			pass.Reportf(file.Package,
-				"file has %d non-stdlib imports (max %d)", count, max)
+				"[fanout] file has %d non-stdlib imports (max %d)", count, max)
 		}
 	}
 	return nil, nil

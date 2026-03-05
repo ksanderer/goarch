@@ -47,7 +47,7 @@ func checkLayer(pass *analysis.Pass, rule config.LayerRule) {
 			}
 
 			if isDenied(importPath, rule) {
-				pass.Reportf(imp.Pos(), "import %q is not allowed in this package", importPath)
+				pass.Reportf(imp.Pos(), "[layerguard] import %q is not allowed in this package", importPath)
 			}
 		}
 	}

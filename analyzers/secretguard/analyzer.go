@@ -52,7 +52,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 					fieldType := pass.TypesInfo.TypeOf(field.Type)
 					if fieldType != nil && !isSecretType(fieldType, requiredType) {
 						pass.Reportf(name.Pos(),
-							"sensitive field %q should use type %s, got %s",
+							"[secretguard] sensitive field %q should use type %s, got %s",
 							name.Name, requiredType, fieldType.String())
 					}
 				}

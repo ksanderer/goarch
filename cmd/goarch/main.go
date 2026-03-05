@@ -20,6 +20,7 @@ import (
 	"github.com/nicegoodthings/goarch/analyzers/layerguard"
 	"github.com/nicegoodthings/goarch/analyzers/methodcount"
 	"github.com/nicegoodthings/goarch/analyzers/secretguard"
+	"github.com/nicegoodthings/goarch/docs"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 )
@@ -50,6 +51,10 @@ func main() {
 		// Run analyzers only — rewrite args for multichecker.
 		os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
 		multichecker.Main(analyzers...)
+	case "explain":
+		explainRule(os.Args[2:])
+	case "rules":
+		listRules()
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -71,6 +76,8 @@ func proxyCommand(cmd string, args []string) {
 
 	if err := check.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "\ngoarch: BUILD BLOCKED — fix architecture violations above.\n")
+		fmt.Fprintf(os.Stderr, "goarch: Run 'go tool goarch explain <rule>' for details on any rule.\n")
+		fmt.Fprintf(os.Stderr, "goarch: Rules: layerguard, execguard, secretguard, fanout, methodcount, apileak\n")
 		os.Exit(1)
 	}
 
@@ -134,6 +141,30 @@ func extractTargets(args []string) []string {
 	return targets
 }
 
+func explainRule(args []string) {
+	if len(args) == 0 {
+		listRules()
+		return
+	}
+	rule := docs.Get(args[0])
+	if rule == nil {
+		fmt.Fprintf(os.Stderr, "goarch: unknown rule %q\n\n", args[0])
+		listRules()
+		os.Exit(1)
+	}
+	fmt.Println(rule.Long)
+}
+
+func listRules() {
+	fmt.Println("Available rules:")
+	fmt.Println()
+	for _, r := range docs.All() {
+		fmt.Printf("  %-14s %s\n", r.ID, r.Short)
+	}
+	fmt.Println()
+	fmt.Println("Run 'go tool goarch explain <rule>' for detailed documentation.")
+}
+
 func printUsage() {
 	fmt.Fprintf(os.Stderr, `goarch — architecture-enforcing build proxy for Go
 
@@ -142,11 +173,12 @@ Usage:
   goarch run   [go run flags]   [packages]   Validate then run
   goarch test  [go test flags]  [packages]   Validate then test
   goarch check [packages]                    Validate only
+  goarch explain <rule>                      Show rule documentation
+  goarch rules                               List all rules
 
 Examples:
-  goarch build -o bin/api ./cmd/api
-  goarch run ./cmd/api
-  goarch test -v ./...
-  goarch check ./...
+  go tool goarch build -o bin/api ./cmd/api
+  go tool goarch check ./...
+  go tool goarch explain secretguard
 `)
 }

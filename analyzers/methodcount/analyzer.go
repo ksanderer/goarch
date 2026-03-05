@@ -55,7 +55,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	for typeName, count := range counts {
 		if count > max {
 			pass.Reportf(positions[typeName],
-				"type %s has %d exported methods (max %d)", typeName, count, max)
+				"[methodcount] type %s has %d exported methods (max %d)", typeName, count, max)
 		}
 	}
 
