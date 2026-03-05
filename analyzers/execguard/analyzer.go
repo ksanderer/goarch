@@ -83,8 +83,10 @@ func run(pass *analysis.Pass) (interface{}, error) {
 }
 
 func isExcepted(pkg string, exceptions []string) bool {
+	// Strip .test suffix for test packages (e.g. "github.com/.../backend.test")
+	cleanPkg := strings.TrimSuffix(pkg, ".test")
 	for _, exc := range exceptions {
-		if pkg == exc || strings.HasSuffix(pkg, "/"+exc) {
+		if cleanPkg == exc || strings.HasSuffix(cleanPkg, "/"+exc) {
 			return true
 		}
 	}

@@ -40,8 +40,9 @@ type BannedImport struct {
 
 // SecretGuardConfig ensures sensitive fields use a wrapper type.
 type SecretGuardConfig struct {
-	Type          string   `yaml:"type"`
-	FieldPatterns []string `yaml:"field_patterns"`
+	Type           string   `yaml:"type"`
+	FieldPatterns  []string `yaml:"field_patterns"`
+	ExceptPackages []string `yaml:"except_packages"` // packages where the rule is not enforced
 }
 
 // FanOutConfig limits the number of imports per file.
