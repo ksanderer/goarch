@@ -1,0 +1,62 @@
+# Example goarch configuration.
+# Copy this to .goarch.yml in your project root and customize.
+
+rules:
+
+  # Layer isolation: control which packages can import what.
+  layerguard:
+    layers:
+      "internal/subprocess":
+        allow: ["internal/errors"]
+        deny_all_others: true
+      "internal/core":
+        deny: ["internal/transport/*", "cmd/*"]
+      "internal/transport/rest":
+        allow: ["internal/api", "internal/errors"]
+        deny_all_others: true
+      "internal/transport/grpc":
+        allow: ["internal/api", "internal/errors"]
+        deny_all_others: true
+
+  # Ban specific packages/methods outside allowed locations.
+  execguard:
+    banned:
+      - pkg: "os/exec"
+        except: ["internal/subprocess"]
+        reason: "Shell execution only allowed in subprocess package"
+      - pkg: "os"
+        methods: ["Getenv", "Setenv", "LookupEnv"]
+        except: ["internal/config"]
+        reason: "Environment access only through config package"
+      - pkg: "net/smtp"
+        reason: "Use email service abstraction"
+
+  # Ensure sensitive fields use a wrapper type.
+  secretguard:
+    type: "Secret"
+    field_patterns:
+      - "password"
+      - "token"
+      - "secret"
+      - "api_key"
+      - "apikey"
+      - "private_key"
+      - "privatekey"
+      - "ssn"
+      - "credit_card"
+      - "cvv"
+
+  # Limit imports per file (fan-out complexity).
+  fanout:
+    max_imports: 20
+
+  # Limit exported methods per type.
+  methodcount:
+    max_public_methods: 25
+
+  # Prevent internal types from leaking into public API.
+  apileak:
+    public_packages: ["internal/api"]
+    banned_types_in_public:
+      - "internal/executor.*"
+      - "internal/statebackend.*"
