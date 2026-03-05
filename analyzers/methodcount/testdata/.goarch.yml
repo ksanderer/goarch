@@ -1,0 +1,3 @@
+rules:
+  methodcount:
+    max_public_methods: 2

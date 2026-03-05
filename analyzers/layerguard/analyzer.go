@@ -8,7 +8,7 @@ package layerguard
 import (
 	"strings"
 
-	"github.com/nicegoodthings/goarch/config"
+	"github.com/ksanderer/goarch/config"
 	"golang.org/x/tools/go/analysis"
 )
 

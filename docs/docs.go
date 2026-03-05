@@ -222,6 +222,225 @@ FIX:
   2. Convert the internal type to the API type before returning.
   3. If the type genuinely belongs in the API, move it there.`,
 	},
+
+	"funlen": {
+		ID:    "funlen",
+		Name:  "Function Length Limit",
+		Short: "Limits function body length in lines.",
+		Long: `RULE: funlen — Function Length Limit
+
+WHAT IT CHECKS:
+  Each function's body (from opening { to closing }) must not exceed
+  the configured number of lines.
+
+WHY IT EXISTS:
+  Long functions are hard to understand, test, and review. They usually
+  do too many things and should be decomposed into smaller functions
+  with clear names.
+
+CONFIGURATION (.goarch.yml):
+  rules:
+    funlen:
+      max_lines: 75
+
+FIX:
+  1. Extract logical blocks into helper functions with descriptive names.
+  2. Move data transformations to pure functions.
+  3. Use early returns to reduce nesting and length.`,
+	},
+
+	"argcount": {
+		ID:    "argcount",
+		Name:  "Argument Count Limit",
+		Short: "Limits the number of function parameters.",
+		Long: `RULE: argcount — Argument Count Limit
+
+WHAT IT CHECKS:
+  Each function's parameter count (expanding grouped params like
+  "a, b int" into 2) must not exceed the configured maximum.
+
+WHY IT EXISTS:
+  Functions with many parameters are hard to call correctly and
+  indicate the function is doing too much. Use an options struct
+  for functions that need many inputs.
+
+CONFIGURATION (.goarch.yml):
+  rules:
+    argcount:
+      max_args: 7
+
+FIX:
+  1. Group related parameters into a struct:
+     // Before
+     func Send(to, from, subject, body string, cc []string, bcc []string, ...) error
+     // After
+     func Send(msg Message) error
+
+  2. Use functional options pattern for optional parameters.
+  3. Split the function if it's doing too many things.`,
+	},
+
+	"complexity": {
+		ID:    "complexity",
+		Name:  "Cyclomatic Complexity",
+		Short: "Limits cyclomatic complexity per function.",
+		Long: `RULE: complexity — Cyclomatic Complexity
+
+WHAT IT CHECKS:
+  Each function's cyclomatic complexity (number of independent paths
+  through the code) must not exceed the configured maximum.
+  Counted: if, for, range, case, &&, ||, select case. Starts at 1.
+
+WHY IT EXISTS:
+  High complexity = hard to test and reason about. A function with
+  complexity 20 needs at least 20 test cases for full coverage.
+
+CONFIGURATION (.goarch.yml):
+  rules:
+    complexity:
+      max_complexity: 15
+
+FIX:
+  1. Extract conditional branches into named functions.
+  2. Replace switch/case with a map lookup.
+  3. Use early returns to flatten nested if/else chains.
+  4. Split the function into smaller, focused functions.`,
+	},
+
+	"depban": {
+		ID:    "depban",
+		Name:  "Dependency Ban",
+		Short: "Bans modules in go.mod and limits dependency count.",
+		Long: `RULE: depban — Dependency Ban
+
+WHAT IT CHECKS:
+  Scans go.mod for banned module dependencies and optionally limits
+  the total number of direct dependencies. Unlike execguard (which
+  checks source imports), depban catches modules in go.mod that may
+  only be used transitively.
+
+WHY IT EXISTS:
+  Dependency governance prevents supply chain risks and bloat.
+  Banning specific modules enforces technology standardization
+  (e.g. one HTTP router, one logging library).
+
+CONFIGURATION (.goarch.yml):
+  rules:
+    depban:
+      deny:
+        - module: "github.com/sirupsen/logrus"
+          reason: "Use zerolog"
+        - module: "github.com/gin-gonic/gin"
+          reason: "Use chi"
+      max_dependencies: 50
+
+FIX:
+  1. Replace the banned dependency with the approved alternative.
+  2. Run 'go mod tidy' to clean up unused dependencies.
+  3. If the dependency is needed, discuss with the team and update .goarch.yml.`,
+	},
+
+	"tagguard": {
+		ID:    "tagguard",
+		Name:  "Struct Tag Guard",
+		Short: "Validates struct tag naming conventions per package.",
+		Long: `RULE: tagguard — Struct Tag Guard
+
+WHAT IT CHECKS:
+  Per-package validation of struct field JSON tags:
+    - Naming convention: snake_case or camelCase
+    - Presence: exported fields must have a json tag (optional)
+
+WHY IT EXISTS:
+  Inconsistent JSON serialization causes API compatibility issues.
+  REST APIs should use snake_case, internal types may use camelCase.
+  Missing tags on exported fields can expose internal names.
+
+CONFIGURATION (.goarch.yml):
+  rules:
+    tagguard:
+      packages:
+        "internal/domain":
+          json_naming: "snake_case"
+          require_json_tags: true
+        "internal/api":
+          json_naming: "camelCase"
+
+FIX:
+  1. Add or fix the json tag:
+     // Before
+     UserName string
+     // After
+     UserName string ` + "`" + `json:"user_name"` + "`" + `
+
+  2. Use json:"-" to explicitly omit fields from serialization.`,
+	},
+
+	"errguard": {
+		ID:    "errguard",
+		Name:  "Error Type Placement",
+		Short: "Restricts where custom error types can be defined.",
+		Long: `RULE: errguard — Error Type Placement
+
+WHAT IT CHECKS:
+  Types that implement the error interface (have an Error() string
+  method) must be defined in one of the allowed packages.
+
+WHY IT EXISTS:
+  Scattered error types make error handling inconsistent. Centralizing
+  errors in one package (e.g. internal/domain) makes them discoverable,
+  ensures consistent error codes, and simplifies error mapping.
+
+CONFIGURATION (.goarch.yml):
+  rules:
+    errguard:
+      allowed_packages: ["internal/domain"]
+
+FIX:
+  1. Move the error type to the allowed package.
+  2. If the error is package-specific, use fmt.Errorf or errors.New
+     instead of a custom type.
+  3. If a new error package is needed, add it to allowed_packages.`,
+	},
+
+	"authguard": {
+		ID:    "authguard",
+		Name:  "Endpoint Auth Coverage",
+		Short: "Verifies HTTP routes go through auth middleware.",
+		Long: `RULE: authguard — Endpoint Auth Coverage
+
+WHAT IT CHECKS:
+  In the router package, HTTP route registrations (r.Get, r.Post, etc.)
+  must be inside a Route group that calls Use() with the configured
+  auth middleware. Routes matching exempt patterns are skipped.
+
+WHY IT EXISTS:
+  Missing auth middleware on endpoints is a common security vulnerability.
+  This rule ensures every new route is either explicitly authenticated
+  or explicitly exempted.
+
+CONFIGURATION (.goarch.yml):
+  rules:
+    authguard:
+      router_package: "cmd/api"
+      auth_middleware: "middleware.Auth"
+      exempt_patterns: ["/health", "/auth/*", "/webhooks/*"]
+
+FIX:
+  1. Add the route inside a protected Route group:
+     r.Route("/api", func(r chi.Router) {
+         r.Use(middleware.Auth)
+         r.Get("/users", listUsers)
+     })
+
+  2. If the route is intentionally public, add it to exempt_patterns.`,
+	},
+}
+
+// ruleOrder defines the display order for rules.
+var ruleOrder = []string{
+	"layerguard", "execguard", "secretguard", "fanout", "methodcount", "apileak",
+	"funlen", "argcount", "complexity", "depban", "tagguard", "errguard", "authguard",
 }
 
 // Get returns a rule by ID, or nil if not found.
@@ -233,11 +452,10 @@ func Get(id string) *Rule {
 	return &r
 }
 
-// All returns all rules sorted by ID.
+// All returns all rules in display order.
 func All() []Rule {
-	ids := []string{"layerguard", "execguard", "secretguard", "fanout", "methodcount", "apileak"}
-	result := make([]Rule, 0, len(ids))
-	for _, id := range ids {
+	result := make([]Rule, 0, len(ruleOrder))
+	for _, id := range ruleOrder {
 		result = append(result, rules[id])
 	}
 	return result

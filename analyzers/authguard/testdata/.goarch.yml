@@ -1,0 +1,5 @@
+rules:
+  authguard:
+    router_package: "test.example/router"
+    auth_middleware: "Auth"
+    exempt_patterns: ["/health", "/webhooks/*"]

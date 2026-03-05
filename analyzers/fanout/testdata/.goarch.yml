@@ -1,0 +1,3 @@
+rules:
+  fanout:
+    max_imports: 1

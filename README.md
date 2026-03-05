@@ -32,7 +32,7 @@ Direct `go build` produces a compile error:
 ```
 go build ./cmd/api
 
-# github.com/nicegoodthings/goarch/gate
+# github.com/ksanderer/goarch/gate
 [goarch] go build is blocked. Use 'go tool goarch build' instead:1: ...
 ```
 
@@ -44,7 +44,7 @@ Two steps in any Go project:
 
 ```go
 // cmd/api/main.go
-import _ "github.com/nicegoodthings/goarch/gate"
+import _ "github.com/ksanderer/goarch/gate"
 ```
 
 This blocks direct `go build` at compile time. Only `go tool goarch build` can compile the project.
@@ -52,8 +52,8 @@ This blocks direct `go build` at compile time. Only `go tool goarch build` can c
 ### 2. Register the tool
 
 ```bash
-go get github.com/nicegoodthings/goarch
-go mod edit -tool github.com/nicegoodthings/goarch/cmd/goarch
+go get github.com/ksanderer/goarch
+go mod edit -tool github.com/ksanderer/goarch/cmd/goarch
 go mod tidy
 ```
 
@@ -178,11 +178,6 @@ FIX:
   2. Change field types...
   3. Use .Value() where the real value is needed...
 ```
-
-## Reference Specification
-
-- **[archunit-rust-go-audit.md](docs/archunit-rust-go-audit.md)** — Per-rule analysis of 84 ArchUnit rules from a Java project, with Go and Rust mappings.
-- **[ROADMAP.md](ROADMAP.md)** — Phased plan to reach full parity with the reference spec.
 
 ## Architecture
 

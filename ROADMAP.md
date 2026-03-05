@@ -4,7 +4,7 @@
 
 This project aims to match the architectural enforcement capabilities described in:
 
-**[archunit-rust-go-audit.md](docs/archunit-rust-go-audit.md)** — a per-rule analysis of 84 ArchUnit rules + 6 build tools from a Java project (schedulr), with detailed comparison of how each rule maps to Rust and Go.
+**[archunit-rust-go-audit.md](../archunit-rust-go-audit.md)** — a per-rule analysis of 84 ArchUnit rules + 6 build tools from a Java project (schedulr), with detailed comparison of how each rule maps to Rust and Go.
 
 That document is the source of truth for what rules exist, why they exist, and how they should be enforced. Every phase below references specific rule IDs from that spec.
 

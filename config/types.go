@@ -13,6 +13,14 @@ type Rules struct {
 	FanOut      *FanOutConfig      `yaml:"fanout"`
 	MethodCount *MethodCountConfig `yaml:"methodcount"`
 	APILeak     *APILeakConfig     `yaml:"apileak"`
+	FunLen      *FunLenConfig      `yaml:"funlen"`
+	ArgCount    *ArgCountConfig    `yaml:"argcount"`
+	Complexity  *ComplexityConfig  `yaml:"complexity"`
+	DepBan      *DepBanConfig      `yaml:"depban"`
+	TagGuard    *TagGuardConfig    `yaml:"tagguard"`
+	ErrGuard    *ErrGuardConfig    `yaml:"errguard"`
+	AuthGuard   *AuthGuardConfig   `yaml:"authguard"`
+	External    []ExternalTool     `yaml:"external"`
 }
 
 // LayerGuardConfig enforces dependency allowlists/denylists per package.
@@ -59,4 +67,60 @@ type MethodCountConfig struct {
 type APILeakConfig struct {
 	PublicPackages      []string `yaml:"public_packages"`
 	BannedTypesInPublic []string `yaml:"banned_types_in_public"`
+}
+
+// FunLenConfig limits function body length.
+type FunLenConfig struct {
+	MaxLines int `yaml:"max_lines"`
+}
+
+// ArgCountConfig limits the number of function parameters.
+type ArgCountConfig struct {
+	MaxArgs int `yaml:"max_args"`
+}
+
+// ComplexityConfig limits cyclomatic complexity per function.
+type ComplexityConfig struct {
+	MaxComplexity int `yaml:"max_complexity"`
+}
+
+// DepBanConfig bans modules in go.mod and optionally limits total dependency count.
+type DepBanConfig struct {
+	Deny            []ModuleBan `yaml:"deny"`
+	MaxDependencies int         `yaml:"max_dependencies"`
+}
+
+// ModuleBan describes a single banned module.
+type ModuleBan struct {
+	Module string `yaml:"module"`
+	Reason string `yaml:"reason"`
+}
+
+// TagGuardConfig validates struct tag naming conventions per package.
+type TagGuardConfig struct {
+	Packages map[string]TagRule `yaml:"packages"`
+}
+
+// TagRule defines JSON tag requirements for a package.
+type TagRule struct {
+	JSONNaming      string `yaml:"json_naming"`       // "snake_case" or "camelCase"
+	RequireJSONTags bool   `yaml:"require_json_tags"` // exported fields must have json tag
+}
+
+// ErrGuardConfig restricts where custom error types can be defined.
+type ErrGuardConfig struct {
+	AllowedPackages []string `yaml:"allowed_packages"`
+}
+
+// AuthGuardConfig verifies endpoint auth middleware coverage.
+type AuthGuardConfig struct {
+	RouterPackage  string   `yaml:"router_package"`
+	AuthMiddleware string   `yaml:"auth_middleware"`
+	ExemptPatterns []string `yaml:"exempt_patterns"`
+}
+
+// ExternalTool defines a third-party tool to run as part of goarch validation.
+type ExternalTool struct {
+	Name string `yaml:"name"`
+	Cmd  string `yaml:"cmd"`
 }

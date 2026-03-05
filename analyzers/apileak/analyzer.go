@@ -10,7 +10,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/nicegoodthings/goarch/config"
+	"github.com/ksanderer/goarch/config"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"

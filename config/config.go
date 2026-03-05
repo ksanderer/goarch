@@ -64,3 +64,11 @@ func parse(data []byte) (*Config, error) {
 	}
 	return &cfg, nil
 }
+
+// ResetForTesting clears the cached config so it will be reloaded on next run.
+// Only call this from tests.
+func ResetForTesting() {
+	cached = nil
+	loadErr = nil
+	loadOnce = sync.Once{}
+}

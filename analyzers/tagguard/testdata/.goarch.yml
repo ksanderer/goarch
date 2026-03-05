@@ -1,0 +1,6 @@
+rules:
+  tagguard:
+    packages:
+      "example":
+        json_naming: "snake_case"
+        require_json_tags: true

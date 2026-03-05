@@ -1,0 +1,5 @@
+rules:
+  apileak:
+    public_packages: ["test.example/public"]
+    banned_types_in_public:
+      - "test.example/internal/executor.*"

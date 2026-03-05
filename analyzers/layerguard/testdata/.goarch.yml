@@ -1,0 +1,8 @@
+rules:
+  layerguard:
+    layers:
+      "test.example/core":
+        allow: ["test.example/util"]
+        deny_all_others: true
+      "test.example/api":
+        deny: ["test.example/secret"]

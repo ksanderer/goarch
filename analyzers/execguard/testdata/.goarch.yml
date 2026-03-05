@@ -1,0 +1,10 @@
+rules:
+  execguard:
+    banned:
+      - pkg: "os/exec"
+        except: ["allowed"]
+        reason: "use subprocess"
+      - pkg: "os"
+        methods: ["Getenv"]
+        except: ["allowed"]
+        reason: "use config"

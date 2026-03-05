@@ -1,4 +1,4 @@
-module github.com/nicegoodthings/goarch
+module github.com/ksanderer/goarch
 
 go 1.25.0
 

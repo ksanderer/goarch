@@ -1,0 +1,3 @@
+rules:
+  funlen:
+    max_lines: 10

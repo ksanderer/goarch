@@ -9,20 +9,32 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"sync"
 
-	"github.com/nicegoodthings/goarch/analyzers/apileak"
-	"github.com/nicegoodthings/goarch/analyzers/execguard"
-	"github.com/nicegoodthings/goarch/analyzers/fanout"
-	"github.com/nicegoodthings/goarch/analyzers/layerguard"
-	"github.com/nicegoodthings/goarch/analyzers/methodcount"
-	"github.com/nicegoodthings/goarch/analyzers/secretguard"
-	"github.com/nicegoodthings/goarch/docs"
+	"github.com/ksanderer/goarch/analyzers/apileak"
+	"github.com/ksanderer/goarch/analyzers/argcount"
+	"github.com/ksanderer/goarch/analyzers/authguard"
+	"github.com/ksanderer/goarch/analyzers/complexity"
+	"github.com/ksanderer/goarch/analyzers/depban"
+	"github.com/ksanderer/goarch/analyzers/errguard"
+	"github.com/ksanderer/goarch/analyzers/execguard"
+	"github.com/ksanderer/goarch/analyzers/fanout"
+	"github.com/ksanderer/goarch/analyzers/funlen"
+	"github.com/ksanderer/goarch/analyzers/layerguard"
+	"github.com/ksanderer/goarch/analyzers/methodcount"
+	"github.com/ksanderer/goarch/analyzers/secretguard"
+	"github.com/ksanderer/goarch/analyzers/tagguard"
+	"github.com/ksanderer/goarch/config"
+	"github.com/ksanderer/goarch/docs"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
+	"gopkg.in/yaml.v3"
 )
 
 // buildTag is the secret tag injected into go build/run/test.
@@ -36,6 +48,13 @@ var analyzers = []*analysis.Analyzer{
 	fanout.Analyzer,
 	methodcount.Analyzer,
 	apileak.Analyzer,
+	funlen.Analyzer,
+	argcount.Analyzer,
+	complexity.Analyzer,
+	depban.Analyzer,
+	tagguard.Analyzer,
+	errguard.Analyzer,
+	authguard.Analyzer,
 }
 
 func main() {
@@ -88,18 +107,38 @@ func proxyCommand(cmd string, args []string) {
 	vetArgs := []string{"vet", "-vettool", self, "-tags", buildTag, "./..."}
 	check := exec.Command("go", vetArgs...)
 	check.Stdout = os.Stdout
-	check.Stderr = os.Stderr
 
-	if err := check.Run(); err != nil {
+	// Pipe stderr through a dedup filter — go vet runs analysis on both
+	// main and test packages, producing duplicate violation messages.
+	stderrPipe, _ := check.StderrPipe()
+	check.Start()
+
+	seen := &sync.Map{}
+	scanner := bufio.NewScanner(stderrPipe)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if _, loaded := seen.LoadOrStore(line, true); !loaded {
+			fmt.Fprintln(os.Stderr, line)
+		}
+	}
+
+	if err := check.Wait(); err != nil {
 		fmt.Fprintf(os.Stderr, "\ngoarch: BUILD BLOCKED — fix architecture violations above.\n")
 		fmt.Fprintf(os.Stderr, "goarch: Run 'go tool goarch explain <rule>' for details on any rule.\n")
-		fmt.Fprintf(os.Stderr, "goarch: Rules: layerguard, execguard, secretguard, fanout, methodcount, apileak\n")
+		ruleNames := make([]string, len(analyzers))
+		for i, a := range analyzers {
+			ruleNames[i] = a.Name
+		}
+		fmt.Fprintf(os.Stderr, "goarch: Rules: %s\n", strings.Join(ruleNames, ", "))
 		os.Exit(1)
 	}
 
 	fmt.Fprintf(os.Stderr, "goarch: architecture OK\n")
 
-	// Phase 2: Proxy to go build/run/test with the secret tag.
+	// Run external tools if configured.
+	runExternalTools()
+
+	// Proxy to go build/run/test with the secret tag.
 	goArgs := []string{cmd, "-tags", buildTag}
 	goArgs = append(goArgs, args...)
 
@@ -116,45 +155,6 @@ func proxyCommand(cmd string, args []string) {
 		}
 		os.Exit(1)
 	}
-}
-
-// flagsWithArgs are go build flags that take a following argument.
-var flagsWithArgs = map[string]bool{
-	"-o": true, "-p": true, "-asmflags": true, "-buildmode": true,
-	"-buildvcs": true, "-compiler": true, "-gccgoflags": true,
-	"-gcflags": true, "-ldflags": true, "-mod": true, "-modfile": true,
-	"-overlay": true, "-pgo": true, "-pkgdir": true, "-tags": true,
-	"-toolexec": true, "-cover": true, "-covermode": true,
-	"-coverpkg": true, "-exec": true, "-timeout": true,
-	"-run": true, "-bench": true, "-count": true, "-cpu": true,
-	"-blockprofile": true, "-cpuprofile": true, "-memprofile": true,
-	"-mutexprofile": true, "-trace": true, "-outputdir": true,
-}
-
-func extractTargets(args []string) []string {
-	var targets []string
-	skipNext := false
-	for _, arg := range args {
-		if skipNext {
-			skipNext = false
-			continue
-		}
-		if strings.HasPrefix(arg, "-") {
-			// Check if this flag takes an argument.
-			flag := arg
-			if i := strings.Index(arg, "="); i >= 0 {
-				flag = arg[:i] // -o=bin/api → -o
-			} else if flagsWithArgs[flag] {
-				skipNext = true
-			}
-			continue
-		}
-		// Package paths start with . or contain /
-		if strings.HasPrefix(arg, ".") || strings.Contains(arg, "/") {
-			targets = append(targets, arg)
-		}
-	}
-	return targets
 }
 
 func explainRule(args []string) {
@@ -179,6 +179,48 @@ func listRules() {
 	}
 	fmt.Println()
 	fmt.Println("Run 'go tool goarch explain <rule>' for detailed documentation.")
+}
+
+func runExternalTools() {
+	cfg := loadConfigFile()
+	if cfg == nil || len(cfg.Rules.External) == 0 {
+		return
+	}
+	for _, tool := range cfg.Rules.External {
+		fmt.Fprintf(os.Stderr, "goarch: running %s...\n", tool.Name)
+		parts := strings.Fields(tool.Cmd)
+		cmd := exec.Command(parts[0], parts[1:]...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "\ngoarch: BUILD BLOCKED — %s failed.\n", tool.Name)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "goarch: %s OK\n", tool.Name)
+	}
+}
+
+func loadConfigFile() *config.Config {
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+	for {
+		path := filepath.Join(dir, ".goarch.yml")
+		data, err := os.ReadFile(path)
+		if err == nil {
+			var cfg config.Config
+			if yaml.Unmarshal(data, &cfg) == nil {
+				return &cfg
+			}
+			return nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return nil
+		}
+		dir = parent
+	}
 }
 
 func printUsage() {

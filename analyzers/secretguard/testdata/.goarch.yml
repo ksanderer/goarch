@@ -1,0 +1,6 @@
+rules:
+  secretguard:
+    type: "Secret"
+    field_patterns:
+      - "apikey"
+      - "password"

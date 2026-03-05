@@ -1,0 +1,3 @@
+rules:
+  complexity:
+    max_complexity: 3

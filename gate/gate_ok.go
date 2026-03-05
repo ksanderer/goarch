@@ -8,5 +8,5 @@
 //
 // Usage in your project's main.go:
 //
-//	import _ "github.com/nicegoodthings/goarch/gate"
+//	import _ "github.com/ksanderer/goarch/gate"
 package gate

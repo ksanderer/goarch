@@ -30,6 +30,19 @@ rules:
         reason: "Environment access only through config package"
       - pkg: "net/smtp"
         reason: "Use email service abstraction"
+      - pkg: "fmt"
+        methods: ["Println", "Printf", "Print"]
+        except: ["cmd/*"]
+        reason: "Use structured logging"
+      - pkg: "time"
+        methods: ["Sleep"]
+        except: ["internal/retry"]
+        reason: "Use retry/backoff instead of sleep"
+      # Banned libraries
+      - pkg: "github.com/sirupsen/logrus"
+        reason: "Use zerolog or slog"
+      - pkg: "github.com/gin-gonic/gin"
+        reason: "Use chi"
 
   # Ensure sensitive fields use a wrapper type.
   secretguard:
@@ -60,3 +73,48 @@ rules:
     banned_types_in_public:
       - "internal/executor.*"
       - "internal/statebackend.*"
+
+  # Limit function body length.
+  funlen:
+    max_lines: 75
+
+  # Limit function parameters.
+  argcount:
+    max_args: 7
+
+  # Limit cyclomatic complexity.
+  complexity:
+    max_complexity: 15
+
+  # Ban modules in go.mod.
+  depban:
+    deny:
+      - module: "github.com/sirupsen/logrus"
+        reason: "Use zerolog or slog"
+      - module: "github.com/gin-gonic/gin"
+        reason: "Use chi"
+    max_dependencies: 50
+
+  # Validate struct tag naming conventions.
+  tagguard:
+    packages:
+      "internal/api":
+        json_naming: "snake_case"
+        require_json_tags: true
+
+  # Restrict where error types can be defined.
+  errguard:
+    allowed_packages: ["internal/domain", "internal/errors"]
+
+  # Verify endpoint auth middleware coverage.
+  authguard:
+    router_package: "cmd/api"
+    auth_middleware: "middleware.Auth"
+    exempt_patterns: ["/health", "/auth/*", "/webhooks/*"]
+
+  # Run external tools as part of validation.
+  # external:
+  #   - name: "golangci-lint"
+  #     cmd: "golangci-lint run ./..."
+  #   - name: "nilaway"
+  #     cmd: "nilaway ./..."

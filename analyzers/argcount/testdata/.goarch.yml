@@ -1,0 +1,3 @@
+rules:
+  argcount:
+    max_args: 3
