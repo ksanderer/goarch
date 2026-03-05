@@ -2,11 +2,21 @@
 
 package gate
 
-// go_build_is_blocked is intentionally undefined.
-// Direct 'go build' is not allowed for projects using goarch.
-//
-// Use instead:
-//   go tool goarch build ./cmd/api
-//   go tool goarch run ./cmd/api
-//   go tool goarch test ./...
-var go_build_is_blocked = _use_go_tool_goarch_build_instead
+//line [goarch] ─────────────────────────────────────────────────────────:1
+var _a _
+//line [goarch]  Direct 'go build' is not allowed.                       :1
+var _b _
+//line [goarch]                                                          :1
+var _c _
+//line [goarch]  Use:  go tool goarch build ./cmd/api                    :1
+var _d _
+//line [goarch]        go tool goarch run   ./cmd/api                    :1
+var _e _
+//line [goarch]        go tool goarch test  ./...                        :1
+var _f _
+//line [goarch]                                                          :1
+var _g _
+//line [goarch]  goarch validates architecture rules before building.    :1
+var _h _
+//line [goarch] ─────────────────────────────────────────────────────────:1
+var _i _
