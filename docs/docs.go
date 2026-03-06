@@ -108,13 +108,24 @@ WHAT IT CHECKS:
 WHY IT EXISTS:
   Plain string secrets can accidentally leak into:
     - Logs: logger.Info().Interface("cfg", cfg) → all keys visible
-    - JSON: json.Marshal(cfg) → secrets in HTTP responses
     - Error messages: fmt.Errorf("failed with cfg: %v", cfg)
+    - Debug output: fmt.Println(cfg) → all fields visible
 
-  A Secret wrapper type controls how the value is displayed:
+  A Secret wrapper type redacts the value in String()/GoString() output:
     fmt.Println(secret)    → "[REDACTED]"
-    json.Marshal(secret)   → "[REDACTED]"
     secret.Value()         → actual value (explicit opt-in)
+
+DESIGN PRINCIPLE:
+  Secret is a scalar type. It protects against accidental leaks in logs
+  and error messages by redacting String() and GoString(). It does NOT
+  implement MarshalJSON — JSON serialization stays transparent.
+
+  Protection against JSON leaks is handled at the struct level:
+    - Use json:"-" on secret fields in API response DTOs
+    - Use custom MarshalJSON on the struct when you need control
+
+  This keeps Secret compatible with storage (Redis, DB) where
+  json.Marshal must preserve the real value.
 
 CONFIGURATION (.goarch.yml):
   rules:
@@ -127,9 +138,13 @@ FIX:
   1. Create a Secret type in your project:
 
      type Secret string
-     func (s Secret) String() string              { return "[REDACTED]" }
-     func (s Secret) MarshalJSON() ([]byte, error) { return []byte(` + "`" + `"[REDACTED]"` + "`" + `), nil }
-     func (s Secret) Value() string               { return string(s) }
+     func (s Secret) String() string   { return "[REDACTED]" }
+     func (s Secret) GoString() string { return "[REDACTED]" }
+     func (s Secret) Value() string    { return string(s) }
+
+     Do NOT implement MarshalJSON on Secret — it breaks storage
+     serialization (Redis, caches). Handle JSON redaction at the
+     struct level instead.
 
   2. Change field types:
      // Before
@@ -138,7 +153,29 @@ FIX:
      OpenRouterAPIKey Secret
 
   3. Use .Value() where the real value is needed:
-     req.Header.Set("Authorization", "Bearer " + cfg.APIKey.Value())`,
+     req.Header.Set("Authorization", "Bearer " + cfg.APIKey.Value())
+
+  4. For API responses, redact at the struct level:
+
+     // Fields that should never appear in JSON responses:
+     type Config struct {
+         APIKey Secret ` + "`" + `json:"-"` + "`" + `
+     }
+
+     // Auth flows where you need the value in JSON:
+     type AuthResponse struct {
+         AccessToken  Secret ` + "`" + `json:"-"` + "`" + `
+         RefreshToken Secret ` + "`" + `json:"-"` + "`" + `
+     }
+     func (r AuthResponse) MarshalJSON() ([]byte, error) {
+         return json.Marshal(struct {
+             AccessToken  string ` + "`" + `json:"access_token"` + "`" + `
+             RefreshToken string ` + "`" + `json:"refresh_token"` + "`" + `
+         }{
+             AccessToken:  r.AccessToken.Value(),
+             RefreshToken: r.RefreshToken.Value(),
+         })
+     }`,
 	},
 
 	"fanout": {

@@ -114,7 +114,7 @@ execguard:
 
 ### secretguard — Sensitive Field Guard
 
-Ensures struct fields with sensitive names use a wrapper type instead of plain strings.
+Ensures struct fields with sensitive names use a wrapper type instead of plain strings. The Secret type should redact `String()`/`GoString()` but **not** `MarshalJSON()` — JSON redaction is handled at the struct level via `json:"-"` or custom marshalers.
 
 Word-boundary aware matching: `"apikey"` matches `OpenRouterAPIKey` but `"token"` does NOT match `PromptTokens`.
 
