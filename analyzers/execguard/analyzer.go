@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ksanderer/goarch/config"
+	"github.com/ksanderer/goarch/internal/match"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -83,10 +84,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 }
 
 func isExcepted(pkg string, exceptions []string) bool {
-	// Strip .test suffix for test packages (e.g. "github.com/.../backend.test")
 	cleanPkg := strings.TrimSuffix(pkg, ".test")
 	for _, exc := range exceptions {
-		if cleanPkg == exc || strings.HasSuffix(cleanPkg, "/"+exc) {
+		if match.Pattern(cleanPkg, exc) {
 			return true
 		}
 	}

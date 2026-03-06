@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ksanderer/goarch/config"
+	"github.com/ksanderer/goarch/internal/match"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -28,7 +29,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	pkg := pass.Pkg.Path()
 
 	for pattern, rule := range cfg.Rules.LayerGuard.Layers {
-		if !matchPattern(pkg, pattern) {
+		if !match.Pattern(pkg, pattern) {
 			continue
 		}
 		checkLayer(pass, rule)
@@ -56,7 +57,7 @@ func checkLayer(pass *analysis.Pass, rule config.LayerRule) {
 func isDenied(importPath string, rule config.LayerRule) bool {
 	// Check explicit deny list first.
 	for _, pattern := range rule.Deny {
-		if matchPattern(importPath, pattern) {
+		if match.Pattern(importPath, pattern) {
 			return true
 		}
 	}
@@ -64,7 +65,7 @@ func isDenied(importPath string, rule config.LayerRule) bool {
 	// If deny_all_others, check that import is in allow list.
 	if rule.DenyAllOthers {
 		for _, pattern := range rule.Allow {
-			if matchPattern(importPath, pattern) {
+			if match.Pattern(importPath, pattern) {
 				return false
 			}
 		}
@@ -72,21 +73,6 @@ func isDenied(importPath string, rule config.LayerRule) bool {
 	}
 
 	return false
-}
-
-func matchPattern(s, pattern string) bool {
-	// Support trailing wildcard: "transport/*" matches "transport/rest"
-	if strings.HasSuffix(pattern, "/*") {
-		prefix := strings.TrimSuffix(pattern, "/*")
-		return strings.HasPrefix(s, prefix+"/") || s == prefix
-	}
-	// Support ** for deep match
-	if strings.HasSuffix(pattern, "/**") {
-		prefix := strings.TrimSuffix(pattern, "/**")
-		return strings.HasPrefix(s, prefix+"/") || s == prefix
-	}
-	// Exact or suffix match (for relative package paths like "internal/subprocess")
-	return s == pattern || strings.HasSuffix(s, "/"+pattern)
 }
 
 func isStdlib(importPath string) bool {
