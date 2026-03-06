@@ -27,9 +27,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		return nil, nil
 	}
 
-	requiredType := cfg.Rules.SecretGuard.Type
+	requiredTypes := cfg.Rules.SecretGuard.AllTypes()
 	patterns := cfg.Rules.SecretGuard.FieldPatterns
-	if requiredType == "" || len(patterns) == 0 {
+	if len(requiredTypes) == 0 || len(patterns) == 0 {
 		return nil, nil
 	}
 
@@ -50,10 +50,10 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			for _, name := range field.Names {
 				if matchesSensitive(name.Name, patterns) {
 					fieldType := pass.TypesInfo.TypeOf(field.Type)
-					if fieldType != nil && !isSecretType(fieldType, requiredType) {
+					if fieldType != nil && !isAnySecretType(fieldType, requiredTypes) {
 						pass.Reportf(name.Pos(),
-							"[secretguard] sensitive field %q should use type %s, got %s",
-							name.Name, requiredType, fieldType.String())
+							"[secretguard] sensitive field %q should use one of %v, got %s",
+							name.Name, requiredTypes, fieldType.String())
 					}
 				}
 			}
@@ -128,16 +128,26 @@ func splitCamelCase(s string) []string {
 	return words
 }
 
-func isSecretType(t types.Type, requiredType string) bool {
+// isAnySecretType checks if t (or the type under a pointer) matches any of the required types.
+func isAnySecretType(t types.Type, requiredTypes []string) bool {
+	// Unwrap pointer: *Secret → Secret
+	if ptr, ok := t.(*types.Pointer); ok {
+		t = ptr.Elem()
+	}
 	named, ok := t.(*types.Named)
 	if !ok {
 		return false
 	}
 	fullName := named.Obj().Pkg().Path() + "." + named.Obj().Name()
-	// Match either full path or just the type name.
-	return fullName == requiredType ||
-		strings.HasSuffix(fullName, "/"+requiredType) ||
-		named.Obj().Name() == lastElement(requiredType)
+	typeName := named.Obj().Name()
+	for _, req := range requiredTypes {
+		if fullName == req ||
+			strings.HasSuffix(fullName, "/"+req) ||
+			typeName == lastElement(req) {
+			return true
+		}
+	}
+	return false
 }
 
 func lastElement(s string) string {

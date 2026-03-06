@@ -120,7 +120,7 @@ Word-boundary aware matching: `"apikey"` matches `OpenRouterAPIKey` but `"token"
 
 ```yaml
 secretguard:
-  type: "Secret"
+  types: ["Secret", "SecretBytes"]  # Secret for string, SecretBytes for []byte
   field_patterns: ["apikey", "secret", "password", "accesstoken"]
   except_packages: ["internal/handler"]  # response DTOs are OK
 ```

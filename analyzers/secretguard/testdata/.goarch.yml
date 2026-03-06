@@ -1,6 +1,8 @@
 rules:
   secretguard:
-    type: "Secret"
+    types:
+      - "Secret"
+      - "SecretBytes"
     field_patterns:
       - "apikey"
       - "password"

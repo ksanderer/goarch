@@ -130,27 +130,37 @@ DESIGN PRINCIPLE:
 CONFIGURATION (.goarch.yml):
   rules:
     secretguard:
-      type: "Secret"
+      types: ["Secret", "SecretBytes"]     # multiple types allowed
+      # type: "Secret"                     # single type also works
       field_patterns: ["apikey", "secret", "password", "accesstoken"]
       except_packages: ["internal/handler"]  # response DTOs are OK
 
+  Pointer types (*Secret, *SecretBytes) are accepted automatically.
+
 FIX:
-  1. Create a Secret type in your project:
+  1. Create wrapper types in your project:
 
      type Secret string
      func (s Secret) String() string   { return "[REDACTED]" }
      func (s Secret) GoString() string { return "[REDACTED]" }
      func (s Secret) Value() string    { return string(s) }
 
-     Do NOT implement MarshalJSON on Secret — it breaks storage
+     type SecretBytes []byte
+     func (s SecretBytes) String() string   { return "[REDACTED]" }
+     func (s SecretBytes) GoString() string { return "[REDACTED]" }
+     func (s SecretBytes) Value() []byte    { return []byte(s) }
+
+     Do NOT implement MarshalJSON on these types — it breaks storage
      serialization (Redis, caches). Handle JSON redaction at the
      struct level instead.
 
   2. Change field types:
      // Before
      OpenRouterAPIKey string
+     JWTSecret        []byte
      // After
      OpenRouterAPIKey Secret
+     JWTSecret        SecretBytes
 
   3. Use .Value() where the real value is needed:
      req.Header.Set("Authorization", "Bearer " + cfg.APIKey.Value())

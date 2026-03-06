@@ -48,9 +48,23 @@ type BannedImport struct {
 
 // SecretGuardConfig ensures sensitive fields use a wrapper type.
 type SecretGuardConfig struct {
-	Type           string   `yaml:"type"`
+	Type           string   `yaml:"type"`             // single type (backward compat)
+	Types          []string `yaml:"types"`            // multiple allowed types
 	FieldPatterns  []string `yaml:"field_patterns"`
 	ExceptPackages []string `yaml:"except_packages"` // packages where the rule is not enforced
+}
+
+// AllTypes returns the merged list of required types from Type and Types.
+func (c *SecretGuardConfig) AllTypes() []string {
+	seen := make(map[string]bool)
+	var result []string
+	for _, t := range append([]string{c.Type}, c.Types...) {
+		if t != "" && !seen[t] {
+			seen[t] = true
+			result = append(result, t)
+		}
+	}
+	return result
 }
 
 // FanOutConfig limits the number of imports per file.
