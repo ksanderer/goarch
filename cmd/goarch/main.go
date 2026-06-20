@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/ksanderer/goarch/analyzers/apileak"
 	"github.com/ksanderer/goarch/analyzers/argcount"
@@ -83,7 +84,8 @@ func main() {
 func runCheck(args []string) {
 	// Run go vet with ourselves as the vettool + the build tag to bypass gate.
 	self, _ := os.Executable()
-	vetArgs := []string{"vet", "-vettool", self, "-tags", buildTag}
+	args, tags := mergeBuildTags(args)
+	vetArgs := []string{"vet", "-vettool", self, "-tags", tags}
 	vetArgs = append(vetArgs, args...)
 
 	goCmd := exec.Command("go", vetArgs...)
@@ -101,10 +103,12 @@ func runCheck(args []string) {
 func proxyCommand(cmd string, args []string) {
 	fmt.Fprintf(os.Stderr, "goarch: validating architecture...\n")
 
+	args, tags := mergeBuildTags(args)
+
 	// Always validate the entire project — architecture rules apply globally.
 	// Uses go vet -vettool with the build tag to bypass gate during analysis.
 	self, _ := os.Executable()
-	vetArgs := []string{"vet", "-vettool", self, "-tags", buildTag, "./..."}
+	vetArgs := []string{"vet", "-vettool", self, "-tags", tags, "./..."}
 	check := exec.Command("go", vetArgs...)
 	check.Stdout = os.Stdout
 
@@ -138,8 +142,8 @@ func proxyCommand(cmd string, args []string) {
 	// Run external tools if configured.
 	runExternalTools()
 
-	// Proxy to go build/run/test with the secret tag.
-	goArgs := []string{cmd, "-tags", buildTag}
+	// Proxy to go build/run/test with the secret tag plus any caller tags.
+	goArgs := []string{cmd, "-tags", tags}
 	goArgs = append(goArgs, args...)
 
 	fmt.Fprintf(os.Stderr, "goarch: go %s\n", strings.Join(goArgs, " "))
@@ -155,6 +159,48 @@ func proxyCommand(cmd string, args []string) {
 		}
 		os.Exit(1)
 	}
+}
+
+func mergeBuildTags(args []string) ([]string, string) {
+	tags := []string{buildTag}
+	filtered := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "-tags" && i+1 < len(args):
+			tags = appendBuildTags(tags, args[i+1])
+			i++
+		case strings.HasPrefix(arg, "-tags="):
+			tags = appendBuildTags(tags, strings.TrimPrefix(arg, "-tags="))
+		default:
+			filtered = append(filtered, arg)
+		}
+	}
+	return filtered, strings.Join(uniqueStrings(tags), ",")
+}
+
+func appendBuildTags(tags []string, raw string) []string {
+	for _, tag := range strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || unicode.IsSpace(r)
+	}) {
+		if tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
+}
+
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
 }
 
 func explainRule(args []string) {
