@@ -6,6 +6,7 @@ import (
 	"go/ast"
 
 	"github.com/ksanderer/goarch/config"
+	"github.com/ksanderer/goarch/internal/generated"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -26,13 +27,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 	max := cfg.Rules.FunLen.MaxLines
 	fset := pass.Fset
+	generatedFiles := generated.FromPass(pass)
 
 	insp := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	nodeFilter := []ast.Node{(*ast.FuncDecl)(nil)}
 
 	insp.Preorder(nodeFilter, func(n ast.Node) {
 		fn := n.(*ast.FuncDecl)
-		if fn.Body == nil {
+		if fn.Body == nil || generatedFiles.Contains(fset, fn.Pos()) {
 			return
 		}
 		start := fset.Position(fn.Body.Lbrace)
